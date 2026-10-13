@@ -17,6 +17,11 @@ import os
 
 GROQ_API_BASE = "https://api.groq.com/openai/v1"
 
+# Verified against https://console.groq.com/docs/models (Oct 2026).
+# deepseek-r1-distill-llama-70b was decommissioned — do not use it.
+DEFAULT_GROQ_WORKER_MODEL = "llama-3.3-70b-versatile"
+DEFAULT_GROQ_MANAGER_MODEL = "openai/gpt-oss-120b"
+
 
 def build_chat_model(role: str = "worker"):
     """Return a smolagents chat model for 'worker' or 'manager' role."""
@@ -25,9 +30,9 @@ def build_chat_model(role: str = "worker"):
         from smolagents import OpenAIServerModel
 
         if role == "manager":
-            model_id = os.getenv("GROQ_MANAGER_MODEL_ID", "deepseek-r1-distill-llama-70b")
+            model_id = os.getenv("GROQ_MANAGER_MODEL_ID", DEFAULT_GROQ_MANAGER_MODEL)
         else:
-            model_id = os.getenv("GROQ_WORKER_MODEL_ID", "llama-3.3-70b-versatile")
+            model_id = os.getenv("GROQ_WORKER_MODEL_ID", DEFAULT_GROQ_WORKER_MODEL)
         return OpenAIServerModel(
             model_id=model_id,
             api_base=GROQ_API_BASE,
