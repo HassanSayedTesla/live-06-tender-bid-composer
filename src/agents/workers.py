@@ -1,13 +1,14 @@
 """Specialized worker agents. Ch3.1 + Ch1/Ch2 patterns. HF-only."""
 from __future__ import annotations
 
-from smolagents import CodeAgent, InferenceClientModel
+from smolagents import CodeAgent
 
-from src.config import MAX_STEPS_WORKER, PLANNING_INTERVAL, WORKER_MODEL_ID
+from src.config import MAX_STEPS_WORKER, PLANNING_INTERVAL
+from src.models import build_chat_model
 
 
-def _hf_model(model_id: str = WORKER_MODEL_ID):
-    return InferenceClientModel(model_id=model_id)
+def _hf_model():
+    return build_chat_model("worker")
 
 
 def _web_search_tool():

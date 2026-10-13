@@ -1,19 +1,26 @@
-"""FAISS + HF embeddings. Ch2.2 pattern, HF-only with local fallback."""
+"""FAISS + embeddings. Local-first (zero credits), HF endpoint optional."""
 from __future__ import annotations
 
 
-def get_embedder(model_id: str = "BAAI/bge-base-en-v1.5"):
-    """Prefer HF Inference endpoint, fall back to local sentence-transformers."""
-    try:
+def get_embedder(
+    model_id: str = "BAAI/bge-base-en-v1.5", mode: str | None = None
+):
+    """Local sentence-transformers by default; HF endpoint if mode='endpoint'.
+
+    Local mode needs no Inference credits (fixes HTTP 402 on free tier).
+    """
+    from src.config import EMBEDDING_MODE, LOCAL_EMBEDDING_MODEL_ID
+
+    mode = (mode or EMBEDDING_MODE).strip().lower()
+    if mode == "endpoint":
         from langchain_huggingface import HuggingFaceEndpointEmbeddings
 
         return HuggingFaceEndpointEmbeddings(
             model=model_id, task="feature-extraction"
         )
-    except Exception:
-        from langchain_huggingface import HuggingFaceEmbeddings
+    from langchain_huggingface import HuggingFaceEmbeddings
 
-        return HuggingFaceEmbeddings(model_name=model_id)
+    return HuggingFaceEmbeddings(model_name=LOCAL_EMBEDDING_MODEL_ID)
 
 
 def build_faiss(chunks, embedder=None, model_id: str = "BAAI/bge-base-en-v1.5"):

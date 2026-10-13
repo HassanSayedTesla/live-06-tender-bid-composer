@@ -1,15 +1,16 @@
-"""Manager orchestrator. Ch3.1 pattern. HF-only."""
+"""Manager orchestrator. Ch3.1 pattern. HF default, Groq optional."""
 from __future__ import annotations
 
-from smolagents import CodeAgent, InferenceClientModel
+from smolagents import CodeAgent
 
-from src.config import MANAGER_MODEL_ID, MAX_STEPS_MANAGER
+from src.config import MAX_STEPS_MANAGER
+from src.models import build_chat_model
 
 
-def build_manager(managed_agents: list, model_id: str = MANAGER_MODEL_ID) -> CodeAgent:
+def build_manager(managed_agents: list) -> CodeAgent:
     return CodeAgent(
         tools=[],
-        model=InferenceClientModel(model_id=model_id),
+        model=build_chat_model("manager"),
         instructions=(
             "You are a tender bid manager. Delegate: rfp_reader extracts "
             "requirements, company_agent profiles bidder, pricing_agent prices, "

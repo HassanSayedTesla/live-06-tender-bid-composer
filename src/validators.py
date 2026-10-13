@@ -24,12 +24,12 @@ def check_coverage(final_answer, agent_memory=None) -> bool:
     return True
 
 
-def check_reasoning_accuracy(final_answer, agent_memory=None, model_id: str | None = None) -> bool:
-    from smolagents import ChatMessage, InferenceClientModel
+def check_reasoning_accuracy(final_answer, agent_memory=None) -> bool:
+    from smolagents import ChatMessage
 
-    from src.config import WORKER_MODEL_ID
+    from src.models import build_chat_model
 
-    model = InferenceClientModel(model_id=model_id or WORKER_MODEL_ID)
+    model = build_chat_model("worker")
     try:
         reasoning = agent_memory.get_succinct_steps()
     except Exception:
