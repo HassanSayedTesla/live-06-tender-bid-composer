@@ -1,5 +1,3 @@
-# System packages installed via apt-get in Dockerfile (HF Spaces Docker SDK).
-# One package per line. Lines starting with # are ignored.
 build-essential
 git
 curl
