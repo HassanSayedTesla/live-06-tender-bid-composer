@@ -1,0 +1,13 @@
+flowchart LR
+  A[RFP PDF/TXT + Company TXT] --> B[PyPDF + TextLoader + Splitter 1000/200]
+  B --> C[HuggingFace BGE + FAISS]
+  C --> D[RfpSearchTool: Tool subclass k=6]
+  D --> E[bid_manager: CodeAgent DeepSeek-R1 HF]
+  E --> F1[rfp_reader: RfpSearchTool + planning_interval=3]
+  E --> F2[company_agent: DuckDuckGoSearch OSS]
+  E --> F3[pricing_agent: @tool calc_bid_table + pandas]
+  E --> F4[compliance_agent: checker]
+  F1 & F2 & F3 & F4 --> G[final_answer_checks: coverage + HF judge]
+  G -->|pass| H[bid.md + pricing.csv + citations]
+  G -->|fail| I[REJECT + memory.json]
+  E -.-> J[step_callbacks Planning/Action + tokens]
