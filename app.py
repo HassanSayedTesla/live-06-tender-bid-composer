@@ -6,8 +6,8 @@ from pathlib import Path
 
 import streamlit as st
 
-st.set_page_config(page_title="06 · Tender Bid Composer (smolagents, HF-only)", layout="wide")
-st.title("LIVE SYSTEM / 06 — Tender Bid Composer")
+st.set_page_config(page_title="Tender Bid Composer (smolagents, HF-only)", layout="wide")
+st.title("Tender Bid Composer")
 st.caption("smolagents · HF Inference · BGE + FAISS · Manager + 4 workers · Validators · HF-only, no closed APIs")
 
 sample_dir = Path("data/samples")
@@ -53,5 +53,3 @@ if st.button("Compose Bid", type="primary"):
         if mem.exists():
             st.download_button("Download agent_memory.json", mem.read_bytes(), file_name="agent_memory.json")
             st.code(mem.read_text(encoding="utf-8")[:4000])
-else:
-    st.info("Upload an RFP or run with bundled samples. Needs HF_TOKEN env for live LLM calls.")
