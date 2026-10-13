@@ -1,3 +1,15 @@
+---
+title: Live 06 Tender Bid Composer
+emoji: 📑
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 8501
+pinned: false
+license: mit
+short_description: smolagents tender bid composer (manager + workers, BGE+FAISS, validators). HF-only.
+---
+
 # LIVE SYSTEM / 06 — Tender Bid Composer (smolagents, HF-only)
 
 Upload RFP docs → manager delegates to 4 workers → bid draft with pricing, citations, compliance verdict.
@@ -31,3 +43,9 @@ streamlit run app.py
 ```
 pytest -q
 ```
+
+## Deploy on HF Spaces (Docker SDK)
+1. Create a Space with SDK `Docker` (blank Docker template).
+2. Push this repo content to the Space repo, or `Create new Space → Import from GitHub` with this repo URL.
+3. In Space **Settings → Variables and secrets**, add secret `HF_TOKEN` (and optional `WORKER_MODEL_ID` / `MANAGER_MODEL_ID` variables).
+4. The Space builds `Dockerfile` (apt deps from `packages.txt`, pip from `requirements.txt`) and serves Streamlit on port `8501`.
