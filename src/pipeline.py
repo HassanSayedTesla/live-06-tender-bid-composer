@@ -37,17 +37,32 @@ def run_pipeline(source_dir: str | Path, task: str = DEFAULT_TASK, log: list | N
         final_answer_checks=checks,
     )
 
-    # Inject extracted RFP facts so the manager cannot write from memory.
+    # Inject extracted RFP facts as a checklist + an explicit delegation workflow.
+    # gpt-oss skips general instructions; numbered steps in the task itself work.
     entities, specs = extract_rfp_facts(chunks)
     facts = ""
     if entities or specs:
         facts = (
-            "\n\nRFP key facts extracted from the uploaded documents — use ONLY "
-            "these and the workers' findings; do not invent clauses, standards, "
-            f"or figures. Organizations/places: {', '.join(entities[:8]) or 'n/a'}. "
+            "\n\nKey-fact CHECKLIST from the uploaded RFP (verify and expand via "
+            "rfp_reader_agent; do not invent anything beyond the RFP and worker "
+            f"outputs). Organizations/places: {', '.join(entities[:8]) or 'n/a'}. "
             f"Key figures: {', '.join(specs[:8]) or 'n/a'}."
         )
-    result = manager.run(task + facts)
+    workflow = (
+        "\n\nExecute these steps IN ORDER as code actions before any final answer:\n"
+        "1. rfp = rfp_reader_agent(task='Extract ALL RFP requirements: scope items, "
+        "technical specs, capacity, budget, currency, deadlines, warranty MINIMUMS, "
+        "submission documents. Quote section titles and page numbers.')\n"
+        "2. price = pricing_agent(task='Build an itemized pricing table with "
+        "calc_bid_table in the RFP currency (EGP) with 14% VAT, within the RFP budget.')\n"
+        "3. comp = compliance_agent(task='Check every mandatory RFP requirement "
+        "(warranty duration, delivery time, technical specs, documents) against the "
+        "company profile and rfp findings. List PASS/FAIL per requirement.')\n"
+        "4. final_answer: synthesize the bid ONLY from rfp/price/comp outputs, with "
+        "sections Scope, Delivery, Warranty, Pricing, Compliance and real citations. "
+        "Warranty and delivery must meet the RFP minimums or verdict REJECT."
+    )
+    result = manager.run(task + facts + workflow)
     # Re-run the FULL stack: smolagents' max-steps path skips final_answer_checks.
     verdict = run_verdict_checks(result, manager.memory, checks, agent=manager)
     # Keep memory inside the run's own directory (session-isolated in the UI).

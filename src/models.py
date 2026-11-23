@@ -109,12 +109,14 @@ def build_chat_model(role: str = "worker", robust: bool = True):
         else:
             model_id = os.getenv("GROQ_WORKER_MODEL_ID", DEFAULT_GROQ_WORKER_MODEL)
         cls = RobustOpenAIServerModel if robust else OpenAIServerModel
+        # Manager needs stronger instruction-following (delegation) than workers.
+        default_effort = "medium" if role == "manager" else "low"
         return cls(
             model_id=model_id,
             api_base=GROQ_API_BASE,
             api_key=os.getenv("GROQ_API_KEY"),
             # Cut reasoning output tokens (8K TPM free-tier budget).
-            reasoning_effort=os.getenv("GROQ_REASONING_EFFORT", "low"),
+            reasoning_effort=os.getenv("GROQ_REASONING_EFFORT", default_effort),
         )
 
     from smolagents import InferenceClientModel
