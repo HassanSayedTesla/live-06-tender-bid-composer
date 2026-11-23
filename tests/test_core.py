@@ -130,6 +130,99 @@ def test_compliance_no_substring_false_positive():
     assert out.startswith("FAIL")
 
 
+# --- anti-hallucination guards -----------------------------------------------
+
+SOLAR_RFP = (
+    "Falcon Logistics invites qualified renewable-energy contractors to propose "
+    "a rooftop solar photovoltaic system for a warehouse facility in 10th of "
+    "Ramadan City, Egypt. RFP-2026-005. Estimated budget EGP 3,500,000. "
+    "Target commissioning within 16 weeks of contract award. "
+    "Design a nominal 150 kWp solar PV installation. "
+    "Minimum five-year workmanship warranty; equipment warranties specified separately."
+)
+
+
+def _solar_chunks():
+    return [Document(SOLAR_RFP, {"source": "rfp_solar.pdf", "page": 1})]
+
+
+def test_placeholders_rejected():
+    from src.validators import check_no_placeholders
+
+    try:
+        check_no_placeholders("Bid Draft - [Project Title]\nPrepared by: [Your Company Name]")
+    except ValueError as e:
+        assert "placeholders" in str(e)
+        return
+    raise AssertionError("should have raised")
+
+
+def test_markdown_links_and_refs_not_placeholders():
+    from src.validators import check_no_placeholders
+
+    assert check_no_placeholders("See [ISO 9001](https://iso.org) and reference [1].") is True
+
+
+def test_grounding_rejects_generic_template():
+    from src.validators import make_grounding_check
+
+    check = make_grounding_check(_solar_chunks())
+    generic_bid = (
+        "Bid Draft - [Project Title]. Scope: design & engineering per IEC 61850. "
+        "Delivery: 20 weeks. Warranty: 24 months. Pricing: USD 102,000 incl. 20% VAT. "
+        "Compliance: ISO 9001, OSHA, GDPR. " + "x" * 200
+    )
+    try:
+        check(generic_bid)
+    except ValueError as e:
+        assert "not grounded" in str(e)
+        return
+    raise AssertionError("generic template should be rejected")
+
+
+def test_grounding_accepts_rfp_based_bid():
+    from src.validators import make_grounding_check
+
+    check = make_grounding_check(_solar_chunks())
+    grounded = (
+        "Bid for Falcon Logistics rooftop solar PV, 10th of Ramadan City. "
+        "Scope: 150 kWp installation. Delivery: commissioning within 16 weeks. "
+        "Warranty: 5-year workmanship. Pricing: EGP 3,450,000 + 14% VAT. "
+        "Compliance: all RFP-2026-005 requirements met. " + "x" * 200
+    )
+    assert check(grounded) is True
+
+
+class FakeMemory:
+    def __init__(self, code):
+        self._code = code
+
+    def get_succinct_steps(self):
+        return [{"type": "action", "code": self._code}]
+
+
+def test_delegation_rejects_direct_answer():
+    from src.validators import check_delegation
+
+    try:
+        check_delegation("bid", FakeMemory("final_answer('a generic bid')"))
+    except ValueError as e:
+        assert "delegating" in str(e)
+        return
+    raise AssertionError("should have raised")
+
+
+def test_delegation_accepts_worker_calls():
+    from src.validators import check_delegation
+
+    mem = FakeMemory(
+        "facts = rfp_reader_agent(task='extract requirements')\n"
+        "table = pricing_agent(task='price the BOQ')\n"
+        "final_answer(bid)"
+    )
+    assert check_delegation("bid", mem) is True
+
+
 # --- pricing -----------------------------------------------------------------
 
 def test_calc_bid_table_vat():

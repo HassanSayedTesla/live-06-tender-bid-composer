@@ -11,7 +11,7 @@ from src.ingest import load_documents, split_documents
 from src.memory import save_agent_memory
 from src.tools.pricing_tools import calc_bid_table, check_compliance_item
 from src.tools.rfp_search_tool import RfpSearchTool
-from src.validators import FINAL_ANSWER_CHECKS, check_coverage
+from src.validators import build_final_checks, check_coverage
 
 
 def run_pipeline(source_dir: str | Path, task: str = DEFAULT_TASK, log: list | None = None):
@@ -33,7 +33,7 @@ def run_pipeline(source_dir: str | Path, task: str = DEFAULT_TASK, log: list | N
     manager = build_manager(
         list(workers.values()),
         step_callbacks=STEP_CALLBACKS,
-        final_answer_checks=FINAL_ANSWER_CHECKS,
+        final_answer_checks=build_final_checks(chunks),
     )
 
     result = manager.run(task)
