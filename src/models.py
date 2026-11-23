@@ -13,7 +13,11 @@ Env:
 """
 from __future__ import annotations
 
+import json
 import os
+import re
+
+from smolagents import OpenAIServerModel
 
 GROQ_API_BASE = "https://api.groq.com/openai/v1"
 
@@ -23,17 +27,70 @@ DEFAULT_GROQ_WORKER_MODEL = "llama-3.3-70b-versatile"
 DEFAULT_GROQ_MANAGER_MODEL = "openai/gpt-oss-120b"
 
 
-def build_chat_model(role: str = "worker"):
-    """Return a smolagents chat model for 'worker' or 'manager' role."""
+# gpt-oss "harmony" leftovers occasionally leak into chat content.
+_HARMONY_TOKEN_RE = re.compile(r"<\|[^|]*\|>")
+# CodeAgent default tags (smolagents 1.26): all agents here use CodeAgent.
+_CODE_OPEN, _CODE_CLOSE = "<code>", "</code>"
+
+
+def coerce_final_answer_code(text: str) -> str:
+    """Rescue *explicit* final answers that gpt-oss emits without code tags.
+
+    smolagents CodeAgent only accepts <code> tags, ```python fences, or
+    directly-parseable Python. gpt-oss-120b sometimes replies with a bare
+    final_answer(...) call or <final_answer>...</final_answer> XML; both are
+    unambiguous final answers, so we wrap them instead of burning a retry.
+
+    Anything else (plain prose, no final-answer intent) is returned UNCHANGED
+    so smolagents raises a parsing error and the agent retries with feedback.
+    Fail loud, never silently turn a confused reply into a "final" answer.
+    """
+    if not isinstance(text, str) or not text.strip():
+        return text
+    if _CODE_OPEN in text or re.search(r"```(?:python|py)", text):
+        return text
+    if re.search(r"<code_block>|tool_call|Calling tools", text):
+        return text
+    cleaned = _HARMONY_TOKEN_RE.sub("", text).strip()
+    if not cleaned:
+        return text
+    # Bare final_answer(...) call without tags.
+    if re.search(r"final_answer\s*\(", cleaned):
+        return f"{_CODE_OPEN}\n{cleaned}\n{_CODE_CLOSE}"
+    # <final_answer>...</final_answer> XML block.
+    xml = re.search(r"<final_answer>(.*?)</final_answer>", cleaned, re.DOTALL)
+    if xml:
+        payload = json.dumps(xml.group(1).strip(), ensure_ascii=False)
+        return f"{_CODE_OPEN}\nfinal_answer({payload})\n{_CODE_CLOSE}"
+    # No explicit final-answer intent: leave untouched -> parser error -> retry.
+    return text
+
+
+class RobustOpenAIServerModel(OpenAIServerModel):
+    """OpenAIServerModel that sanitizes outputs for CodeAgent parsing."""
+
+    def generate(self, messages: list, stop_sequences: list | None = None, **kwargs):
+        message = super().generate(
+            messages, stop_sequences=stop_sequences, **kwargs
+        )
+        message.content = coerce_final_answer_code(message.content)
+        return message
+
+
+def build_chat_model(role: str = "worker", robust: bool = True):
+    """Return a smolagents chat model for 'worker' or 'manager' role.
+
+    robust=False skips output coercion — used by the LLM judge, whose raw
+    TRUE/FALSE reply must not be wrapped as a final_answer code block.
+    """
     provider = os.getenv("MODEL_PROVIDER", "hf").strip().lower()
     if provider == "groq":
-        from smolagents import OpenAIServerModel
-
         if role == "manager":
             model_id = os.getenv("GROQ_MANAGER_MODEL_ID", DEFAULT_GROQ_MANAGER_MODEL)
         else:
             model_id = os.getenv("GROQ_WORKER_MODEL_ID", DEFAULT_GROQ_WORKER_MODEL)
-        return OpenAIServerModel(
+        cls = RobustOpenAIServerModel if robust else OpenAIServerModel
+        return cls(
             model_id=model_id,
             api_base=GROQ_API_BASE,
             api_key=os.getenv("GROQ_API_KEY"),

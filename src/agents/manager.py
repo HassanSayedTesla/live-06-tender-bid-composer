@@ -7,7 +7,11 @@ from src.config import MAX_STEPS_MANAGER
 from src.models import build_chat_model
 
 
-def build_manager(managed_agents: list) -> CodeAgent:
+def build_manager(
+    managed_agents: list,
+    step_callbacks=None,
+    final_answer_checks=None,
+) -> CodeAgent:
     return CodeAgent(
         tools=[],
         model=build_chat_model("manager"),
@@ -20,6 +24,8 @@ def build_manager(managed_agents: list) -> CodeAgent:
         managed_agents=managed_agents,
         max_steps=MAX_STEPS_MANAGER,
         verbosity_level=1,
+        step_callbacks=step_callbacks,
+        final_answer_checks=final_answer_checks,
     )
 
 

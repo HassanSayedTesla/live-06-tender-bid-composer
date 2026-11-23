@@ -1,4 +1,4 @@
-"""Specialized worker agents. Ch3.1 + Ch1/Ch2 patterns. HF-only."""
+"""Specialized worker agents. Ch3.1 + Ch1/Ch2 patterns. Open models only."""
 from __future__ import annotations
 
 from smolagents import CodeAgent
@@ -12,30 +12,10 @@ def _hf_model():
 
 
 def _web_search_tool():
-    """OSS web search: prefer smolagents WebSearchTool, fallback to DuckDuckGo."""
-    try:
-        from smolagents import WebSearchTool
+    """OSS web search via smolagents WebSearchTool (DuckDuckGo lite, no extra deps)."""
+    from smolagents import WebSearchTool
 
-        return WebSearchTool()
-    except Exception:
-        from smolagents import Tool
-
-        from duckduckgo_search import DDGS
-
-        class DuckSearch(Tool):
-            name = "web_search"
-            description = "Search the web for company/market background."
-            inputs = {"query": {"type": "string", "description": "Search query"}}
-            output_type = "string"
-
-            def forward(self, query: str) -> str:
-                with DDGS() as ddg:
-                    hits = list(ddg.text(query, max_results=5))
-                return "\n".join(
-                    f"- {h.get('title')}: {h.get('body')} ({h.get('href')})" for h in hits
-                ) or "Nothing found."
-
-        return DuckSearch()
+    return WebSearchTool()
 
 
 def build_workers(rfp_search_tool, pricing_tools: list | None = None):

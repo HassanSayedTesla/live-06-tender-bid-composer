@@ -27,10 +27,14 @@ def run_pipeline(source_dir: str | Path, task: str = DEFAULT_TASK, log: list | N
     vs = build_faiss(chunks, model_id=EMBEDDING_MODEL_ID)
     search_tool = RfpSearchTool(vs, k=RETRIEVAL_K)
     workers = build_workers(search_tool, pricing_tools=[calc_bid_table, check_compliance_item])
-    manager = build_manager(list(workers.values()))
-    # Attach observability + validation (Ch2.7 + Ch3.4)
-    manager.step_callbacks = STEP_CALLBACKS
-    manager.final_answer_checks = FINAL_ANSWER_CHECKS
+    # Attach observability + validation at construction (Ch2.7 + Ch3.4).
+    # smolagents 1.26 builds a CallbackRegistry from step_callbacks in the
+    # constructor; overwriting the attr would break step finalization.
+    manager = build_manager(
+        list(workers.values()),
+        step_callbacks=STEP_CALLBACKS,
+        final_answer_checks=FINAL_ANSWER_CHECKS,
+    )
 
     result = manager.run(task)
     try:
@@ -38,5 +42,6 @@ def run_pipeline(source_dir: str | Path, task: str = DEFAULT_TASK, log: list | N
         verdict = "COMPLIANT ✓"
     except Exception as e:
         verdict = f"REJECT ✗ — {e}"
-    mem_path = save_agent_memory(manager)
+    # Keep memory inside the run's own directory (session-isolated in the UI).
+    mem_path = save_agent_memory(manager, Path(source_dir) / "agent_memory.json")
     return {"result": result, "verdict": verdict, "memory": str(mem_path), "log": log}

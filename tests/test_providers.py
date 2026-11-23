@@ -45,3 +45,14 @@ def test_local_embedder_is_default(monkeypatch):
 
     assert config.EMBEDDING_MODE == "local"
     assert os.getenv("EMBEDDING_MODE", "local") == "local"
+
+
+def test_groq_judge_model_is_not_coerced(monkeypatch):
+    _with_env(monkeypatch, MODEL_PROVIDER="groq", GROQ_API_KEY="fake")
+    from smolagents import OpenAIServerModel
+
+    from src.models import RobustOpenAIServerModel
+
+    judge = build_chat_model("worker", robust=False)
+    assert type(judge) is OpenAIServerModel  # not the Robust subclass
+    assert isinstance(build_chat_model("worker"), RobustOpenAIServerModel)

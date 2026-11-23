@@ -39,20 +39,57 @@ def calc_bid_table(items_json: str) -> str:
     return out.to_csv(index=False)
 
 
+_STOPWORDS = {
+    "the", "and", "for", "with", "must", "shall", "should", "will", "have",
+    "has", "are", "was", "were", "been", "being", "this", "that", "these",
+    "those", "from", "into", "upon", "about", "above", "below", "than",
+    "then", "when", "where", "which", "while", "who", "whom", "whose",
+    "what", "how", "all", "any", "both", "each", "few", "more", "most",
+    "other", "some", "such", "only", "own", "same", "too", "very", "can",
+    "could", "may", "might", "would", "also", "not", "nor", "but", "yet",
+    "per", "via", "our", "your", "their", "its", "his", "her", "they",
+    "them", "you", "we", "he", "she", "it", "of", "to", "in", "on", "at",
+    "by", "an", "a", "as", "is", "be", "or", "if", "do", "does", "did",
+    "required", "requirement", "requirements", "provide", "provided",
+    "including", "include", "includes", "etc", "eg", "ie",
+}
+
+
+def _content_tokens(text: str) -> set[str]:
+    import re
+
+    return {
+        w
+        for w in re.findall(r"[a-z0-9]+", text.lower())
+        if len(w) > 3 and w not in _STOPWORDS
+    }
+
+
 @tool
 def check_compliance_item(requirement: str, company_profile: str) -> str:
-    """Check a single RFP requirement against the company profile.
+    """Heuristic pre-check of one RFP requirement against the company profile.
+
+    Token-overlap heuristic (stopwords removed); the compliance agent and the
+    final-answer judge make the semantic decision. PASS needs >=40% of the
+    requirement's content words evidenced in the profile.
 
     Args:
         requirement (str): One RFP requirement sentence.
         company_profile (str): Free-text company capabilities.
 
     Returns:
-        str: 'PASS: ...' or 'FAIL: ...' with a one-line rationale.
+        str: 'PASS: ...' or 'FAIL: ...' with matched/missing evidence words.
     """
-    req_words = set(requirement.lower().split())
-    prof = company_profile.lower()
-    hits = [w for w in req_words if len(w) > 4 and w in prof]
-    if hits:
-        return f"PASS: matched keywords {sorted(set(hits))[:5]}"
-    return "FAIL: no evidence in company profile — flag for reviewer"
+    req_tokens = _content_tokens(requirement)
+    prof_tokens = _content_tokens(company_profile)
+    if not req_tokens:
+        return "PASS: no substantive keywords to verify"
+    hits = req_tokens & prof_tokens
+    missing = req_tokens - prof_tokens
+    coverage = len(hits) / len(req_tokens)
+    if coverage >= 0.4:
+        return f"PASS: {coverage:.0%} keyword coverage, matched {sorted(hits)[:6]}"
+    return (
+        f"FAIL: only {coverage:.0%} keyword coverage — "
+        f"missing evidence for {sorted(missing)[:6]}; flag for reviewer"
+    )

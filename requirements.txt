@@ -1,18 +1,14 @@
-# HF-only Tender Bid Composer (LIVE SYSTEM / 06)
-smolagents>=0.1.0
-huggingface_hub>=0.23.0
-transformers>=4.40.0
-sentence-transformers>=2.7.0
-langchain-community>=0.2.0
-langchain-huggingface>=0.0.3
-langchain-text-splitters>=0.2.0
-langchain-core>=0.2.0
-faiss-cpu>=1.8.0
-pypdf>=4.0.0
-pandas>=2.0.0
-streamlit>=1.33.0
-duckduckgo-search>=5.0.0
-openai>=1.0.0
-fpdf2>=2.7.0
-pydantic>=2.0.0
-pytest>=8.0.0
+# Tender Bid Composer — pinned, slim stack (no torch/transformers/langchain).
+# Versions verified locally on Python 3.12 (matches Dockerfile).
+# NOTE: Streamlit Cloud ignores runtime.txt — set Python 3.12 in the app's
+# Advanced settings so wheels match (faiss-cpu/onnxruntime on 3.14 are risky).
+smolagents==1.26.0
+openai==3.29.0
+huggingface_hub==1.33.0
+fastembed==0.9.1
+faiss-cpu==1.15.1
+pypdf==6.20.1
+pandas==3.0.6
+numpy==2.5.4
+streamlit==1.65.0
+pytest==9.1.1

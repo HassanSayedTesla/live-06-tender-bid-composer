@@ -11,7 +11,7 @@ WORKER_FALLBACK_MODEL_ID = os.getenv("WORKER_FALLBACK_MODEL_ID", "meta-llama/Lla
 
 EMBEDDING_MODEL_ID = os.getenv("EMBEDDING_MODEL_ID", "BAAI/bge-base-en-v1.5")
 
-# Embeddings run LOCALLY by default (sentence-transformers, zero credits).
+# Embeddings run LOCALLY by default (fastembed ONNX, no torch, zero credits).
 # Set EMBEDDING_MODE=endpoint to use the HF Inference endpoint instead.
 EMBEDDING_MODE = os.getenv("EMBEDDING_MODE", "local").strip().lower()
 LOCAL_EMBEDDING_MODEL_ID = os.getenv(

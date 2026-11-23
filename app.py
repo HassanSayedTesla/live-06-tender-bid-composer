@@ -1,14 +1,15 @@
-"""Streamlit demo: LIVE SYSTEM / 06 Tender Bid Composer (HF-only)."""
+"""Streamlit demo: Tender Bid Composer (smolagents, open models only)."""
 from __future__ import annotations
 
-import json
+import shutil
+import tempfile
 from pathlib import Path
 
 import streamlit as st
 
-st.set_page_config(page_title="Tender Bid Composer (smolagents, HF-only)", layout="wide")
+st.set_page_config(page_title="Tender Bid Composer (smolagents)", layout="wide")
 st.title("Tender Bid Composer")
-st.caption("smolagents · HF Inference · BGE + FAISS · Manager + 4 workers · Validators · HF-only, no closed APIs")
+st.caption("smolagents · Groq/HF open models · fastembed + FAISS · Manager + 4 workers · Validators")
 
 sample_dir = Path("data/samples")
 uploaded = st.file_uploader("Upload RFP (PDF/TXT/MD)", type=["pdf", "txt", "md"], accept_multiple_files=True)
@@ -16,11 +17,13 @@ company = st.text_area("Company profile", value=(sample_dir / "company_profile.t
 task = st.text_area("Task", value="Compose a compliant bid draft with Scope, Delivery, Warranty, Pricing, Compliance + citations.")
 
 if st.button("Compose Bid", type="primary"):
-    workdir = Path("data/work")
-    workdir.mkdir(parents=True, exist_ok=True)
-    for f in workdir.glob("*"):
-        if f.is_file():
-            f.unlink()
+    # Session-isolated workdir: concurrent users never share or wipe files.
+    prev = st.session_state.get("workdir")
+    if prev:
+        shutil.rmtree(prev, ignore_errors=True)
+    workdir = Path(tempfile.mkdtemp(prefix="tbc_"))
+    st.session_state["workdir"] = str(workdir)
+
     if uploaded:
         for uf in uploaded:
             (workdir / uf.name).write_bytes(uf.getbuffer())
@@ -33,7 +36,7 @@ if st.button("Compose Bid", type="primary"):
     from src.pipeline import run_pipeline
 
     log: list = []
-    with st.spinner("Manager delegating to workers (HF Inference)..."):
+    with st.spinner("Manager delegating to workers..."):
         try:
             out = run_pipeline(workdir, task=task, log=log)
         except Exception as e:

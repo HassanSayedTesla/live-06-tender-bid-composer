@@ -1,4 +1,8 @@
-"""Final-answer validators. Ch3.4 pattern, HF-only judge."""
+"""Final-answer validators. Ch3.4 pattern: rule check + open-model judge.
+
+smolagents 1.26 calls each check as check(final_answer, memory, agent=self),
+so every validator must accept the `agent` keyword argument.
+"""
 from __future__ import annotations
 
 REQUIRED_SECTIONS = ["scope", "delivery", "warranty", "pricing", "compliance"]
@@ -14,7 +18,7 @@ Respond only TRUE or FALSE. No other text.
 """
 
 
-def check_coverage(final_answer, agent_memory=None) -> bool:
+def check_coverage(final_answer, agent_memory=None, agent=None) -> bool:
     text = str(final_answer).lower()
     if len(str(final_answer)) < 200:
         raise ValueError("Bid draft is too brief (<200 chars)")
@@ -24,23 +28,32 @@ def check_coverage(final_answer, agent_memory=None) -> bool:
     return True
 
 
-def check_reasoning_accuracy(final_answer, agent_memory=None) -> bool:
+def check_reasoning_accuracy(final_answer, agent_memory=None, agent=None) -> bool:
+    """LLM judge: does the bid follow from the agent's own reasoning?
+
+    Uses a raw (non-coerced) model so the TRUE/FALSE verdict stays intact.
+    If the judge call itself fails (rate limit / network), we warn and skip
+    rather than killing the whole run — the rule check still applies.
+    """
     from smolagents import ChatMessage
 
     from src.models import build_chat_model
 
-    model = build_chat_model("worker")
     try:
         reasoning = agent_memory.get_succinct_steps()
     except Exception:
         reasoning = str(agent_memory)[:2000]
     prompt = VALIDATION_PROMPT.format(reasoning, final_answer)
-    out = model([ChatMessage(role="user", content=prompt)])
+    try:
+        model = build_chat_model("worker", robust=False)
+        out = model([ChatMessage(role="user", content=prompt)])
+    except Exception as e:
+        print(f"[validators] judge unavailable ({e}); skipping reasoning check")
+        return True
     verdict = str(getattr(out, "content", out)).strip().upper()
     if "FALSE" in verdict:
-        raise ValueError("HF judge verdict FALSE: reasoning does not support answer")
+        raise ValueError("Judge verdict FALSE: reasoning does not support answer")
     return True
 
 
-FINAL_ANSWER_CHECKS = [check_coverage]
-# Add HF judge in prod (costs an extra call): [check_coverage, check_reasoning_accuracy]
+FINAL_ANSWER_CHECKS = [check_coverage, check_reasoning_accuracy]

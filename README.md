@@ -7,19 +7,19 @@ sdk: docker
 app_port: 8501
 pinned: false
 license: mit
-short_description: smolagents tender bid composer (manager + workers, BGE+FAISS, validators). HF-only.
+short_description: smolagents tender bid composer (manager + workers, fastembed+FAISS, validators + judge). Open models.
 ---
 
-# LIVE SYSTEM / 06 — Tender Bid Composer (smolagents, HF-only)
+# Tender Bid Composer (smolagents, open models only)
 
 Upload RFP docs → manager delegates to 4 workers → bid draft with pricing, citations, compliance verdict.
 
-Open models only. Embeddings run **locally** (sentence-transformers, zero credits).
+Open models only. Embeddings run **locally** (fastembed ONNX — no torch, zero credits).
 LLM provider is switchable: `MODEL_PROVIDER=hf` (HF Inference, needs `HF_TOKEN`)
-or `MODEL_PROVIDER=groq` (Groq free tier — Llama/Qwen/DeepSeek-distill, needs `GROQ_API_KEY`).
+or `MODEL_PROVIDER=groq` (Groq free tier — Llama/Qwen/gpt-oss, needs `GROQ_API_KEY`).
 
 ## Badges
-`smolagents` · `CodeAgent` · `Managed Agents` · `FAISS` · `Planning + Callbacks` · `Validators` · `Streamlit` · `HF + Groq (open models)`
+`smolagents` · `CodeAgent` · `Managed Agents` · `FAISS` · `Planning + Callbacks` · `Validators + LLM judge` · `Streamlit` · `HF + Groq (open models)`
 
 ## Quickstart
 ```powershell
@@ -33,17 +33,17 @@ streamlit run app.py
 ```
 
 ## Structure
-- `src/ingest.py` — Ch2.1 loader + splitter
-- `src/vectorstore.py` — Ch2.2 FAISS (local embeddings default, HF endpoint optional)
-- `src/models.py` — provider factory: HF `InferenceClientModel` vs Groq `OpenAIServerModel`
+- `src/ingest.py` — Ch2.1 pypdf loader + recursive splitter (no langchain)
+- `src/vectorstore.py` — Ch2.2 FAISS (fastembed local embeddings default, HF endpoint optional)
+- `src/models.py` — provider factory: HF `InferenceClientModel` vs Groq `OpenAIServerModel` (+ output coercion for gpt-oss)
 - `src/tools/rfp_search_tool.py` — Ch2.4 `Tool` subclass
-- `src/tools/pricing_tools.py` — Ch1.4 `@tool` pricing + VAT
+- `src/tools/pricing_tools.py` — Ch1.4 `@tool` pricing + VAT, token-coverage compliance pre-check
 - `src/agents/workers.py` — Ch3.1 workers, `planning_interval=3`, `additional_authorized_imports=["pandas"]`
-- `src/agents/manager.py` — Ch3.1 `managed_agents`
+- `src/agents/manager.py` — Ch3.1 `managed_agents`, callbacks/checks injected at construction
 - `src/callbacks.py` — Ch2.7 `step_callbacks`
-- `src/validators.py` — Ch3.4 `final_answer_checks` (rule + HF judge)
+- `src/validators.py` — Ch3.4 `final_answer_checks` (rule + open-model judge)
 - `src/memory.py` — Ch3.3 `get_succinct_steps` / `return_full_code`
-- `app.py` — Streamlit demo with Verdict + Trace + Memory tabs
+- `app.py` — Streamlit demo with Verdict + Trace + Memory tabs, session-isolated workdirs
 
 ## Tests (offline, no HF calls)
 ```
@@ -61,3 +61,8 @@ pytest -q
 MODEL_PROVIDER = "groq"
 GROQ_API_KEY = "gsk_xxx"
 ```
+
+**Python version:** Cloud ignores `runtime.txt`. In the app's **Advanced settings**,
+select **Python 3.12** to match the pinned wheels (faiss-cpu / onnxruntime).
+Dependencies are pinned in `requirements.txt`; the stack is torch-free
+(fastembed ONNX embeddings), so cold starts are fast.
