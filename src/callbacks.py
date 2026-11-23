@@ -1,7 +1,9 @@
-"""Step callbacks for live observability. Ch2.7 pattern."""
+"""Step callbacks for live observability + context-size control. Ch2.7 pattern."""
 from __future__ import annotations
 
 from smolagents import ActionStep, PlanningStep
+
+from src.config import MAX_OBSERVATION_CHARS
 
 
 def planning_callback(step, agent=None, log=None):
@@ -15,6 +17,11 @@ def planning_callback(step, agent=None, log=None):
 
 
 def action_callback(step, agent=None, log=None):
+    # Observations are replayed into every later prompt; cap them so the
+    # manager/workers stay under Groq free-tier TPM limits (413 errors).
+    obs = getattr(step, "observations", None)
+    if isinstance(obs, str) and len(obs) > MAX_OBSERVATION_CHARS:
+        step.observations = obs[:MAX_OBSERVATION_CHARS] + "\n...[truncated for context budget]"
     text = f"Step {step.step_number}: Taking action"
     if getattr(step, "is_final_answer", False):
         try:

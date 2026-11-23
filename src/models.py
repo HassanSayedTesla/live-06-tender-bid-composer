@@ -23,8 +23,11 @@ GROQ_API_BASE = "https://api.groq.com/openai/v1"
 
 # Verified against https://console.groq.com/docs/models (Oct 2026).
 # deepseek-r1-distill-llama-70b was decommissioned — do not use it.
+# Manager uses llama-3.3-70b-versatile: free tier allows ~12k TPM vs only
+# 8k TPM for gpt-oss-120b, which a manager prompt (system + worker outputs)
+# exceeds -> HTTP 413 rate_limit_exceeded. gpt-oss still selectable via env.
 DEFAULT_GROQ_WORKER_MODEL = "llama-3.3-70b-versatile"
-DEFAULT_GROQ_MANAGER_MODEL = "openai/gpt-oss-120b"
+DEFAULT_GROQ_MANAGER_MODEL = "llama-3.3-70b-versatile"
 
 
 # gpt-oss "harmony" leftovers occasionally leak into chat content.
@@ -67,12 +70,25 @@ def coerce_final_answer_code(text: str) -> str:
 
 
 class RobustOpenAIServerModel(OpenAIServerModel):
-    """OpenAIServerModel that sanitizes outputs for CodeAgent parsing."""
+    """OpenAIServerModel that sanitizes outputs for CodeAgent parsing and
+    rides out Groq free-tier rate limits (429, and 413 for TPM overflow)."""
 
     def generate(self, messages: list, stop_sequences: list | None = None, **kwargs):
-        message = super().generate(
-            messages, stop_sequences=stop_sequences, **kwargs
-        )
+        import time
+
+        from openai import APIStatusError
+
+        for attempt in range(3):
+            try:
+                message = super().generate(
+                    messages, stop_sequences=stop_sequences, **kwargs
+                )
+                break
+            except APIStatusError as e:
+                # Groq returns 413 when a request exceeds the TPM quota.
+                if e.status_code not in (413, 429) or attempt == 2:
+                    raise
+                time.sleep(20 * (attempt + 1))  # TPM window resets each minute
         message.content = coerce_final_answer_code(message.content)
         return message
 

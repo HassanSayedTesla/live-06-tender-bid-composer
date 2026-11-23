@@ -223,6 +223,32 @@ def test_delegation_accepts_worker_calls():
     assert check_delegation("bid", mem) is True
 
 
+# --- context-budget truncation -----------------------------------------------
+
+def test_action_callback_truncates_long_observations():
+    from types import SimpleNamespace
+
+    from src.callbacks import action_callback
+    from src.config import MAX_OBSERVATION_CHARS
+
+    step = SimpleNamespace(
+        step_number=1, observations="x" * (MAX_OBSERVATION_CHARS + 500), is_final_answer=False
+    )
+    action_callback(step, log=[])
+    assert len(step.observations) < MAX_OBSERVATION_CHARS + 100
+    assert step.observations.endswith("...[truncated for context budget]")
+
+
+def test_action_callback_keeps_short_observations():
+    from types import SimpleNamespace
+
+    from src.callbacks import action_callback
+
+    step = SimpleNamespace(step_number=1, observations="short result", is_final_answer=False)
+    action_callback(step, log=[])
+    assert step.observations == "short result"
+
+
 # --- pricing -----------------------------------------------------------------
 
 def test_calc_bid_table_vat():

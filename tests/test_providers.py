@@ -36,7 +36,7 @@ def test_groq_provider_builds_openai_server_model(monkeypatch):
     assert isinstance(worker, OpenAIServerModel)
     assert isinstance(manager, OpenAIServerModel)
     assert worker.model_id == "llama-3.3-70b-versatile"
-    assert manager.model_id == "openai/gpt-oss-120b"
+    assert manager.model_id == "llama-3.3-70b-versatile"
 
 
 def test_local_embedder_is_default(monkeypatch):
