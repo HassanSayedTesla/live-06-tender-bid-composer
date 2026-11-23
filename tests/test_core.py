@@ -249,6 +249,51 @@ def test_action_callback_keeps_short_observations():
     assert step.observations == "short result"
 
 
+def test_extract_rfp_facts():
+    from src.validators import extract_rfp_facts
+
+    entities, specs = extract_rfp_facts(_solar_chunks())
+    assert "falcon logistics" in entities
+    assert "ramadan city" in entities
+    assert "150 kwp" in specs
+    assert any("3,500,000" in s for s in specs)
+
+
+def test_verdict_rejects_template_even_when_agent_returns_it():
+    """Regression: max-steps path bypasses final_answer_checks; pipeline must not."""
+    from src.validators import build_final_checks, run_verdict_checks
+
+    checks = [
+        c for c in build_final_checks(_solar_chunks())
+        if c.__name__ != "check_reasoning_accuracy"  # offline: no judge call
+    ]
+    mem = FakeMemory("rfp_reader_agent(task='x')\npricing_agent(task='y')")
+    template = (
+        "Scope: servers per RFP §2.1. Delivery: 20 weeks per §5.4. "
+        "Warranty: 24 months per §6.1. Pricing: USD 370,000. "
+        "Compliance: ISO 9001 per §8.1. Prepared by: [Your Company Name]. " + "x" * 200
+    )
+    verdict = run_verdict_checks(template, mem, checks)
+    assert verdict.startswith("REJECT")
+
+
+def test_verdict_compliant_for_grounded_delegated_bid():
+    from src.validators import build_final_checks, run_verdict_checks
+
+    checks = [
+        c for c in build_final_checks(_solar_chunks())
+        if c.__name__ != "check_reasoning_accuracy"
+    ]
+    mem = FakeMemory("rfp_reader_agent(task='x')\npricing_agent(task='y')")
+    good = (
+        "Scope: 150 kWp rooftop solar PV for Falcon Logistics, 10th of Ramadan City. "
+        "Delivery: commissioning within 16 weeks. Warranty: 5-year workmanship. "
+        "Pricing: EGP 3,400,000 + 14% VAT via calc_bid_table. "
+        "Compliance: all RFP-2026-005 requirements met. " + "x" * 200
+    )
+    assert run_verdict_checks(good, mem, checks) == "COMPLIANT ✓"
+
+
 # --- pricing -----------------------------------------------------------------
 
 def test_calc_bid_table_vat():

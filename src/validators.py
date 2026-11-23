@@ -75,12 +75,8 @@ def check_no_placeholders(final_answer, agent_memory=None, agent=None) -> bool:
     return True
 
 
-def make_grounding_check(chunks):
-    """Factory: the bid must reference the actual RFP's entities and key figures.
-
-    Catches generic template bids that never mention the issuing organization
-    or the numeric specs (capacity, budget, deadlines) found in the documents.
-    """
+def extract_rfp_facts(chunks):
+    """Organizations/places and key figures actually present in the RFP."""
     import re
 
     text = re.sub(r"\s+", " ", " ".join(c.page_content for c in chunks))
@@ -101,6 +97,18 @@ def make_grounding_check(chunks):
         )
     )
     specs = {re.sub(r"\s+", " ", s).strip().lower() for s in specs}
+    return sorted(bigrams), sorted(specs)
+
+
+def make_grounding_check(chunks):
+    """Factory: the bid must reference the actual RFP's entities and key figures.
+
+    Catches generic template bids that never mention the issuing organization
+    or the numeric specs (capacity, budget, deadlines) found in the documents.
+    """
+    import re
+
+    bigrams, specs = extract_rfp_facts(chunks)
 
     def check_grounding(final_answer, agent_memory=None, agent=None) -> bool:
         ans = re.sub(r"\s+", " ", str(final_answer)).lower()
@@ -109,7 +117,7 @@ def make_grounding_check(chunks):
             if not hits:
                 raise ValueError(
                     "Bid is not grounded in the RFP: none of its organizations/"
-                    f"places ({sorted(bigrams)[:6]}) appear. Delegate to "
+                    f"places ({bigrams[:6]}) appear. Delegate to "
                     "rfp_reader_agent and use its findings."
                 )
         if specs:
@@ -118,7 +126,7 @@ def make_grounding_check(chunks):
             if not any(s in ans_norm for s in norm):
                 raise ValueError(
                     "Bid ignores the RFP's key figures "
-                    f"({sorted(specs)[:6]}). Use the extracted requirements."
+                    f"({specs[:6]}). Use the extracted requirements."
                 )
         return True
 
@@ -154,3 +162,18 @@ def build_final_checks(chunks) -> list:
         check_delegation,
         check_reasoning_accuracy,
     ]
+
+
+def run_verdict_checks(final_answer, agent_memory, checks, agent=None) -> str:
+    """Run the FULL validator stack on the returned answer.
+
+    smolagents' max-steps path (_handle_max_steps_reached) returns a forced
+    final answer WITHOUT running final_answer_checks — so the pipeline must
+    re-validate here, otherwise a hallucinated template gets 'COMPLIANT'.
+    """
+    for check in checks:
+        try:
+            check(final_answer, agent_memory, agent=agent)
+        except Exception as e:
+            return f"REJECT ✗ — {e}"
+    return "COMPLIANT ✓"
