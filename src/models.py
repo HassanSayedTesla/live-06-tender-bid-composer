@@ -21,13 +21,16 @@ from smolagents import OpenAIServerModel
 
 GROQ_API_BASE = "https://api.groq.com/openai/v1"
 
-# Verified against https://console.groq.com/docs/models (Oct 2026).
-# deepseek-r1-distill-llama-70b was decommissioned — do not use it.
-# Manager uses llama-3.3-70b-versatile: free tier allows ~12k TPM vs only
-# 8k TPM for gpt-oss-120b, which a manager prompt (system + worker outputs)
-# exceeds -> HTTP 413 rate_limit_exceeded. gpt-oss still selectable via env.
-DEFAULT_GROQ_WORKER_MODEL = "llama-3.3-70b-versatile"
-DEFAULT_GROQ_MANAGER_MODEL = "llama-3.3-70b-versatile"
+# Verified against https://console.groq.com/docs/deprecations (Nov 2026):
+# - deepseek-r1-distill-llama-70b decommissioned 2025-10-02
+# - llama-3.3-70b-versatile / llama-3.1-8b-instant decommissioned 2026-08-16
+# ALL current free-tier chat models (gpt-oss-120b/20b, qwen3.8-27b) share
+# 8K TPM / 1K RPD / 200K TPD. Limits are per-model, so we spread load:
+# workers on gpt-oss-20b, manager on gpt-oss-120b (separate TPM buckets),
+# keep prompts small (observation truncation + compact worker answers),
+# and use reasoning_effort=low to cut output tokens.
+DEFAULT_GROQ_WORKER_MODEL = "openai/gpt-oss-20b"
+DEFAULT_GROQ_MANAGER_MODEL = "openai/gpt-oss-120b"
 
 
 # gpt-oss "harmony" leftovers occasionally leak into chat content.
@@ -78,7 +81,7 @@ class RobustOpenAIServerModel(OpenAIServerModel):
 
         from openai import APIStatusError
 
-        for attempt in range(3):
+        for attempt in range(4):
             try:
                 message = super().generate(
                     messages, stop_sequences=stop_sequences, **kwargs
@@ -86,9 +89,9 @@ class RobustOpenAIServerModel(OpenAIServerModel):
                 break
             except APIStatusError as e:
                 # Groq returns 413 when a request exceeds the TPM quota.
-                if e.status_code not in (413, 429) or attempt == 2:
+                if e.status_code not in (413, 429) or attempt == 3:
                     raise
-                time.sleep(20 * (attempt + 1))  # TPM window resets each minute
+                time.sleep(15 * (attempt + 1))  # TPM window resets each minute
         message.content = coerce_final_answer_code(message.content)
         return message
 
@@ -110,6 +113,8 @@ def build_chat_model(role: str = "worker", robust: bool = True):
             model_id=model_id,
             api_base=GROQ_API_BASE,
             api_key=os.getenv("GROQ_API_KEY"),
+            # Cut reasoning output tokens (8K TPM free-tier budget).
+            reasoning_effort=os.getenv("GROQ_REASONING_EFFORT", "low"),
         )
 
     from smolagents import InferenceClientModel

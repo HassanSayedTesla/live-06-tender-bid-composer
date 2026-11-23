@@ -21,9 +21,9 @@ LOCAL_EMBEDDING_MODEL_ID = os.getenv(
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1000"))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "200"))
 RETRIEVAL_K = int(os.getenv("RETRIEVAL_K", "4"))
-MAX_STEPS_WORKER = int(os.getenv("MAX_STEPS_WORKER", "8"))
-MAX_STEPS_MANAGER = int(os.getenv("MAX_STEPS_MANAGER", "12"))
+MAX_STEPS_WORKER = int(os.getenv("MAX_STEPS_WORKER", "5"))
+MAX_STEPS_MANAGER = int(os.getenv("MAX_STEPS_MANAGER", "8"))
 PLANNING_INTERVAL = int(os.getenv("PLANNING_INTERVAL", "3"))
 VAT_RATE = float(os.getenv("VAT_RATE", "0.14"))  # Egypt 14%
-# Cap on replayed observations per step (Groq free-tier TPM budget).
-MAX_OBSERVATION_CHARS = int(os.getenv("MAX_OBSERVATION_CHARS", "2500"))
+# Cap on replayed observations per step (Groq free-tier 8K TPM budget).
+MAX_OBSERVATION_CHARS = int(os.getenv("MAX_OBSERVATION_CHARS", "1500"))

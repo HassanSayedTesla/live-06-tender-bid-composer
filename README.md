@@ -16,7 +16,7 @@ Upload RFP docs → manager delegates to 4 workers → bid draft with pricing, c
 
 Open models only. Embeddings run **locally** (fastembed ONNX — no torch, zero credits).
 LLM provider is switchable: `MODEL_PROVIDER=hf` (HF Inference, needs `HF_TOKEN`)
-or `MODEL_PROVIDER=groq` (Groq free tier — Llama/Qwen/gpt-oss, needs `GROQ_API_KEY`).
+or `MODEL_PROVIDER=groq` (Groq free tier — gpt-oss-20b workers + gpt-oss-120b manager, needs `GROQ_API_KEY`).
 
 ## Badges
 `smolagents` · `CodeAgent` · `Managed Agents` · `FAISS` · `Planning + Callbacks` · `Validators + LLM judge` · `Streamlit` · `HF + Groq (open models)`
