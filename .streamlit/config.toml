@@ -1,5 +1,0 @@
-# Silence Streamlit's module watcher probing transformers vision modules
-# (sets off ~70 "Examining the path of ... ModuleNotFoundError: torchvision"
-#  tracebacks per run). Safe on Cloud where hot reload isn't needed.
-[server]
-fileWatcherType = "none"
